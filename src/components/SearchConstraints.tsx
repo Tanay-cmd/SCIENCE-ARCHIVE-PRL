@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,12 +6,72 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Search } from "lucide-react";
 
-export const SearchConstraints = () => {
+interface SearchConstraintsProps {
+  onSearch: (results: any[]) => void;
+}
+
+export const SearchConstraints = ({ onSearch }: SearchConstraintsProps) => {
   const [target, setTarget] = useState("");
   const [radius, setRadius] = useState("");
   const [timeFrom, setTimeFrom] = useState("");
   const [timeTo, setTimeTo] = useState("");
   const [bibcode, setBibcode] = useState("");
+
+  const handleSearch = () => {
+    // Create mock results based on constraints
+    const mockResults = [];
+    
+    if (target) {
+      mockResults.push({
+        id: 1,
+        name: "targetresult",
+        description: `Target search results for "${target}"`,
+        matches: Math.floor(Math.random() * 15) + 1,
+        regime: "Multi-wavelength",
+        mission: "",
+        type: "target"
+      });
+    }
+    
+    if (timeFrom || timeTo) {
+      mockResults.push({
+        id: 2,
+        name: "timeresult",
+        description: `Temporal constraint results`,
+        matches: Math.floor(Math.random() * 8) + 1,
+        regime: "X-ray",
+        mission: "chandra",
+        type: "temporal"
+      });
+    }
+    
+    if (bibcode) {
+      mockResults.push({
+        id: 3,
+        name: "bibresult",
+        description: `Publication-associated data for bibcode`,
+        matches: Math.floor(Math.random() * 5) + 1,
+        regime: "Optical",
+        mission: "hst",
+        type: "publication"
+      });
+    }
+    
+    // If no specific constraints, show general results
+    if (mockResults.length === 0) {
+      mockResults.push({
+        id: 1,
+        name: "generalresult",
+        description: "General catalog search results",
+        matches: Math.floor(Math.random() * 20) + 1,
+        regime: "Multi-wavelength",
+        mission: "",
+        type: "general"
+      });
+    }
+    
+    onSearch(mockResults);
+  };
 
   return (
     <Card className="bg-slate-800/50 border-blue-500/30 backdrop-blur-sm">
@@ -84,7 +143,7 @@ export const SearchConstraints = () => {
           />
         </div>
         
-        <Button variant="outline" className="w-full border-blue-500/30 text-blue-300 hover:bg-blue-600/30">
+        <Button onClick={handleSearch} variant="outline" className="w-full border-blue-500/30 text-blue-300 hover:bg-blue-600/30">
           <Search className="w-4 h-4 mr-2" />
           Search for tables matching constraints
         </Button>

@@ -1,66 +1,21 @@
-
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Filter, Plus, HelpCircle } from "lucide-react";
+import { Download, Filter, HelpCircle } from "lucide-react";
 
-export const ResultsSection = () => {
-  const sampleData = [
-    {
-      id: 1,
-      name: "aavsosx",
-      description: "AAVSO International Variable Star Index",
-      matches: 1,
-      regime: "Optical",
-      mission: "",
-      type: "star"
-    },
-    {
-      id: 2,
-      name: "allwiseagn",
-      description: "AllWISE Catalog of Mid-IR AGNs",
-      matches: 1,
-      regime: "Infrared",
-      mission: "wise",
-      type: "galaxy"
-    },
-    {
-      id: 3,
-      name: "arxa",
-      description: "Atlas of Radio/X-Ray Associations (ARXA)",
-      matches: 2,
-      regime: "Optical",
-      mission: "",
-      type: "galaxy"
-    },
-    {
-      id: 4,
-      name: "ascagjs",
-      description: "ASCA GIS Source Catalog (AMSS-I + AMSS-II)",
-      matches: 1,
-      regime: "X-ray",
-      mission: "asca",
-      type: ""
-    },
-    {
-      id: 5,
-      name: "ascamaster",
-      description: "ASCA Master Catalog",
-      matches: 2,
-      regime: "X-ray",
-      mission: "asca",
-      type: ""
-    }
-  ];
+interface ResultsSectionProps {
+  results: any[];
+}
 
+export const ResultsSection = ({ results }: ResultsSectionProps) => {
   return (
     <div className="space-y-6">
       <Card className="bg-slate-800/50 border-blue-500/30 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="text-white flex items-center space-x-2">
             <HelpCircle className="w-5 h-5 text-blue-400" />
-            <span>Results</span>
+            <span>Results ({results.length} tables found)</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -97,7 +52,7 @@ export const ResultsSection = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sampleData.map((row, index) => (
+                  {results.map((row, index) => (
                     <TableRow 
                       key={row.id} 
                       className="border-blue-500/20 hover:bg-blue-600/20 text-white"

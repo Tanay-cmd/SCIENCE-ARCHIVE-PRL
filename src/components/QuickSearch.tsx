@@ -5,9 +5,46 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Search, HelpCircle } from "lucide-react";
 
-export const QuickSearch = () => {
+interface QuickSearchProps {
+  onSearch: (results: any[]) => void;
+}
+
+export const QuickSearch = ({ onSearch }: QuickSearchProps) => {
   const [query, setQuery] = useState("");
   const [currentSelections, setCurrentSelections] = useState<string[]>([]);
+
+  const handleSearch = () => {
+    if (query.trim()) {
+      // Simulate search results based on query
+      const mockResults = [
+        {
+          id: 1,
+          name: "searchresult1",
+          description: `Results for "${query}"`,
+          matches: Math.floor(Math.random() * 10) + 1,
+          regime: "Multi-wavelength",
+          mission: "",
+          type: "search"
+        },
+        {
+          id: 2,
+          name: "searchresult2",
+          description: `Additional matches for "${query}"`,
+          matches: Math.floor(Math.random() * 5) + 1,
+          regime: "Optical",
+          mission: "",
+          type: "search"
+        }
+      ];
+      onSearch(mockResults);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   return (
     <Card className="p-6 bg-slate-800/50 border-blue-500/30 backdrop-blur-sm">
@@ -22,6 +59,7 @@ export const QuickSearch = () => {
             placeholder="Tables, positions, times, ..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyPress={handleKeyPress}
             className="flex-1 bg-slate-700/50 border-blue-500/30 text-white placeholder:text-gray-400"
           />
           <Button variant="link" className="text-blue-400 hover:text-blue-300">
@@ -47,7 +85,7 @@ export const QuickSearch = () => {
         )}
         
         <div className="flex justify-end">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700 text-white">
             <Search className="w-4 h-4 mr-2" />
             Send query
           </Button>
