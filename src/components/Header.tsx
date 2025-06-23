@@ -14,7 +14,7 @@ export const Header = () => {
                 <Search className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">XAMIN SEARCH</h1>
+                <h1 className="text-2xl font-bold text-white">Mount Abu Observatory</h1>
                 <p className="text-sm text-blue-300">Astronomical Data Explorer</p>
               </div>
             </div>
