@@ -1,10 +1,8 @@
-
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ZoomIn, ZoomOut, RotateCcw, Layers, Grid, Target } from "lucide-react";
+import { Target } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
 export const SkyViewer = () => {
@@ -287,16 +285,8 @@ export const SkyViewer = () => {
   return (
     <Card className="bg-slate-800/50 border-blue-500/30 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle className="text-white flex items-center justify-between">
-          <span>Sky Viewer: Pan, zoom and shift+click to set query region</span>
-          <div className="flex space-x-2">
-            <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-300">
-              ICRS
-            </Button>
-            <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-300">
-              SIN
-            </Button>
-          </div>
+        <CardTitle className="text-white">
+          Sky Viewer
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -340,7 +330,7 @@ export const SkyViewer = () => {
             
             <div className="space-y-2">
               <Label className="text-blue-300">Display Options</Label>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center">
                 <label className="flex items-center space-x-2 text-white">
                   <input
                     type="checkbox"
