@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Upload, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 export const SearchConstraints = () => {
   const [target, setTarget] = useState("");
@@ -51,19 +51,6 @@ export const SearchConstraints = () => {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <Label className="text-gray-300">Upload your own table of targets in CSV, VOTable or TDAT format (&lt;50MB)</Label>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" className="border-blue-500/30 text-blue-300 hover:bg-blue-600/30">
-              <Upload className="w-4 h-4 mr-2" />
-              Select file to upload
-            </Button>
-            <Button variant="outline" size="sm" className="border-blue-500/30 text-blue-300 hover:bg-blue-600/30">
-              Clear for new upload
-            </Button>
           </div>
         </div>
         
