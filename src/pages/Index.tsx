@@ -1,12 +1,32 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { Header } from "@/components/Header";
+import { QuickSearch } from "@/components/QuickSearch";
+import { SearchConstraints } from "@/components/SearchConstraints";
+import { SkyViewer } from "@/components/SkyViewer";
+import { AvailableTables } from "@/components/AvailableTables";
+import { ResultsSection } from "@/components/ResultsSection";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <Header />
+      
+      <main className="container mx-auto px-4 py-6 space-y-6">
+        <QuickSearch />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <SearchConstraints />
+            <AvailableTables />
+          </div>
+          
+          <div className="space-y-6">
+            <SkyViewer />
+          </div>
+        </div>
+        
+        <ResultsSection />
+      </main>
     </div>
   );
 };
