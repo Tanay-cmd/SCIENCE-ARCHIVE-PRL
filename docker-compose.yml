@@ -1,0 +1,19 @@
+services:
+  fits_backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5003"
+    networks:
+      - minio_distributed
+    environment:
+      - MINIO_ENDPOINT=localhost:9002  # Changed from minio2:9000 to localhost:9002
+      - MINIO_ACCESS_KEY=Laav10user
+      - MINIO_SECRET_KEY=Laav10pass
+      - MINIO_BUCKET=dataarchive
+
+networks:
+  minio_distributed:
+    external: true
+

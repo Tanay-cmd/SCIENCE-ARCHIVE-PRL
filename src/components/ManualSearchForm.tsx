@@ -4,8 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Check, Info, X, AlertCircle } from "lucide-react";
-import { Toggle } from "@/components/ui/toggle";
+import { Search, Check, Info, X, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { getMinioClient } from "@/lib/minio";
@@ -41,7 +40,8 @@ const RADIUS_UNITS = [
 export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
   const [coordinates, setCoordinates] = useState("");
   const [objectName, setObjectName] = useState("");
-  const [exactMatch, setExactMatch] = useState(false);
+  // Always use strict matching
+  const exactMatch = true;
   const [objectSuggestions, setObjectSuggestions] = useState<{name: string, exactMatch: boolean}[]>([]);
   // Helper function to format file sizes
   const formatFileSize = (bytes: number): string => {
@@ -179,12 +179,6 @@ export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
     setObjectSuggestions([]);
     setShowSuggestions(false);
     setResultStats({total: 0, exactMatches: 0});
-    
-    // Reset exact match to default when clearing search
-    // This provides a better UX as users often expect a reset
-    if (exactMatch) {
-      setExactMatch(false);
-    }
   };
   
   // Function to highlight the matching part of a suggestion
@@ -248,7 +242,7 @@ export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
     setResultStats({total: 0, exactMatches: 0});
 
     // Show toast for exact match search mode
-    if (exactMatch && objectName.trim() !== "") {
+    if (objectName.trim() !== "") {
       toast({
         title: "Strict matching active",
         description: `Searching for exact matches of "${objectName.trim()}"`,
@@ -276,10 +270,8 @@ export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
     // Add object name parameter if provided
     if (objectName && objectName.trim() !== "") {
       params.append('object', objectName.trim());
-      // Add exact matching parameter if enabled
-      if (exactMatch) {
-        params.append('exact_match', 'true');
-      }
+      // Always use exact matching
+      params.append('exact_match', 'true');
     }
     
     // Add coordinate parameters if provided
@@ -323,58 +315,34 @@ export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
           exactMatchCount = exactMatches.length;
           partialMatchCount = partialMatches.length;
           
-          // If in exact match mode, ONLY show exact matches
-          if (exactMatch) {
-            // Only keep exact matches when in strict mode
-            processedFiles = exactMatches;
-            
-            if (exactMatchCount > 0) {
-              // Show success toast for exact matches
+          // Always use strict matching, ONLY show exact matches
+          processedFiles = exactMatches;
+          
+          if (exactMatchCount > 0) {
+            // Show success toast for exact matches
+            toast({
+              title: `Found ${exactMatchCount} exact ${exactMatchCount === 1 ? 'match' : 'matches'}`,
+              description: `Showing only exact matches for "${objectName.trim()}"`,
+              variant: "success"
+            });
+          } else {
+            // Show a message when no exact matches found but partial matches exist
+            if (partialMatchCount > 0) {
               toast({
-                title: `Found ${exactMatchCount} exact ${exactMatchCount === 1 ? 'match' : 'matches'}`,
-                description: `Showing only exact matches for "${objectName.trim()}"`,
-                variant: "success"
+                title: "No exact matches found",
+                description: `No exact matches for "${objectName.trim()}", but ${partialMatchCount} partial ${partialMatchCount === 1 ? 'match exists' : 'matches exist'}.`,
+                variant: "default"
               });
             } else {
-              // Show a message when no exact matches found but partial matches exist
-              if (partialMatchCount > 0) {
-                toast({
-                  title: "No exact matches found",
-                  description: `No exact matches for "${objectName.trim()}", but ${partialMatchCount} partial ${partialMatchCount === 1 ? 'match exists' : 'matches exist'}. Try disabling strict matching.`,
-                  variant: "default"
-                });
-              } else {
-                toast({
-                  title: "No matches found",
-                  description: `No matches found for "${objectName.trim()}". Try a different search term.`,
-                  variant: "destructive"
-                });
-              }
-              
-              // Return an empty array when strict matching finds nothing
-              processedFiles = [];
-            }
-          } else {
-            // In partial match mode, show all matches but with a different message based on what we found
-            if (exactMatchCount > 0 && partialMatchCount > 0) {
               toast({
-                title: `Found ${exactMatchCount + partialMatchCount} matches`,
-                description: `${exactMatchCount} exact and ${partialMatchCount} partial matches for "${objectName.trim()}"`,
-                variant: "default"
-              });
-            } else if (exactMatchCount > 0) {
-              toast({
-                title: `Found ${exactMatchCount} exact ${exactMatchCount === 1 ? 'match' : 'matches'}`,
-                description: `Exact matches for "${objectName.trim()}"`,
-                variant: "success"
-              });
-            } else if (partialMatchCount > 0) {
-              toast({
-                title: `Found ${partialMatchCount} partial ${partialMatchCount === 1 ? 'match' : 'matches'}`,
-                description: `Partial matches for "${objectName.trim()}"`,
-                variant: "default"
+                title: "No matches found",
+                description: `No matches found for "${objectName.trim()}". Try a different search term.`,
+                variant: "destructive"
               });
             }
+            
+            // Return an empty array when no exact matches are found
+            processedFiles = [];
           }
         }
         
@@ -519,10 +487,7 @@ export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs bg-slate-800 border-blue-500/30 text-white p-3">
                       <div className="space-y-2">
-                        <h4 className="font-semibold">Object Search Modes</h4>
-                        <div>
-                          <span className="font-semibold">Partial matching:</span> Finds objects containing your search term (e.g. "TAU" matches "TAUCETI")
-                        </div>
+                        <h4 className="font-semibold">Object Search Mode</h4>
                         <div>
                           <span className="font-semibold">Strict matching:</span> Only finds exact object name matches (case-insensitive)
                         </div>
@@ -532,18 +497,9 @@ export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
                 </TooltipProvider>
               </div>
               <div className="flex items-center space-x-2">
-                <Badge variant={exactMatch ? "default" : "outline"} className={exactMatch ? "bg-blue-600" : "text-gray-400"}>
-                  {exactMatch ? "Strict match" : "Partial match"}
+                <Badge variant="default" className="bg-blue-600">
+                  Strict match only
                 </Badge>
-                <Toggle 
-                  pressed={exactMatch} 
-                  onPressedChange={setExactMatch}
-                  size="sm"
-                  className="data-[state=on]:bg-blue-600 h-7 px-2"
-                >
-                  <Filter className="h-3 w-3 mr-1" />
-                  Strict
-                </Toggle>
               </div>
             </div>
             <div className="relative">
@@ -597,33 +553,13 @@ export const ClassicSearchForm = ({ onSearch }: SearchConstraintsProps) => {
               )}
               <div className="flex items-center justify-between text-xs mt-1">
                 <div className="text-gray-400">
-                  {exactMatch 
-                    ? "Only exact object names will be matched (case-insensitive)" 
-                    : "Objects containing this text will be matched"}
+                  Only exact object names will be matched (case-insensitive)
                 </div>
                 {resultStats.total > 0 && (
                   <div className="flex items-center gap-1">
-                    {exactMatch ? (
-                      <Badge className="bg-green-600 text-xs">
-                        {resultStats.exactMatches} exact {resultStats.exactMatches === 1 ? 'match' : 'matches'}
-                      </Badge>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <Badge className="bg-blue-600 text-xs">
-                          {resultStats.total} {resultStats.total === 1 ? 'result' : 'results'}
-                        </Badge>
-                        {resultStats.exactMatches > 0 && (
-                          <Badge className="bg-green-600 text-xs">
-                            {resultStats.exactMatches} exact
-                          </Badge>
-                        )}
-                        {(resultStats.total - resultStats.exactMatches) > 0 && resultStats.exactMatches > 0 && (
-                          <Badge className="bg-blue-400 text-xs">
-                            {resultStats.total - resultStats.exactMatches} partial
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    <Badge className="bg-green-600 text-xs">
+                      {resultStats.exactMatches} exact {resultStats.exactMatches === 1 ? 'match' : 'matches'}
+                    </Badge>
                   </div>
                 )}
               </div>

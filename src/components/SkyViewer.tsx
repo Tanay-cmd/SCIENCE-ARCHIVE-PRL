@@ -3,20 +3,141 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Target } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 
-export const SkyViewer = () => {
+interface FitsHeader {
+  [key: number]: {
+    keyword: string;
+    value: any;
+    comment?: string;
+  };
+}
+
+interface SkyViewerProps {
+  coordinates: string | null;
+  results: any[];
+  selectedIndex: number | null;
+  fitsHeaders?: FitsHeader[];
+}
+
+export const SkyViewer = memo(({
+  coordinates: newCoordinates,
+  results,
+  selectedIndex,
+  fitsHeaders,
+}: SkyViewerProps) => {
+  const renderInstance = Math.random();
+  console.log("SkyViewer render instance:", renderInstance);
+  console.log("SkyViewer received results:", results);
+  // 1. useState hooks
   const viewerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const lastUpdateRef = useRef<number>(0);
   const [coordinates, setCoordinates] = useState("266.4 -29.0");
   const [fov, setFov] = useState(0.1);
-  const [showGrid, setShowGrid] = useState(true);
   const [survey, setSurvey] = useState("P/DSS2/color");
   const [catalog, setCatalog] = useState("");
+  const [isAladinReady, setIsAladinReady] = useState(false);
 
+
+  // 2. fitsCoordinates useMemo hook
+  const fitsCoordinates = useMemo(() => {
+    if (!fitsHeaders || fitsHeaders.length === 0) {
+      return null;
+    }
+    
+    // Extract RA and DEC from the first FITS header
+    const header = fitsHeaders[0];
+    let ra = null;
+    let dec = null;
+    
+    // Look for RA and DEC keywords in the header
+    Object.values(header).forEach((entry: any) => {
+      if (entry.keyword === 'RA' && entry.value !== null && entry.value !== undefined) {
+        ra = parseFloat(entry.value);
+      }
+      if (entry.keyword === 'DEC' && entry.value !== null && entry.value !== undefined) {
+        dec = parseFloat(entry.value);
+      }
+    });
+    
+    if (ra !== null && dec !== null && !isNaN(ra) && !isNaN(dec)) {
+      console.log(`FITS header coordinates found: RA=${ra}, DEC=${dec}`);
+      return `${ra} ${dec}`;
+    }
+    
+    return null;
+  }, [fitsHeaders]);
+
+  // 3. effectiveCoordinates useMemo hook
+  const effectiveCoordinates = useMemo(() => {
+    return fitsCoordinates || newCoordinates || coordinates;
+  }, [fitsCoordinates, newCoordinates, coordinates]);
+
+  // 4. throttledCoordinates useMemo hook
+  const throttledCoordinates = useMemo(() => {
+    const now = Date.now();
+    if (now - lastUpdateRef.current > 500) { // 500ms throttle
+      lastUpdateRef.current = now;
+      return effectiveCoordinates;
+    }
+    return coordinates;
+  }, [effectiveCoordinates, coordinates]);
+
+  // 5. useEffect hooks
   useEffect(() => {
-    if (viewerRef.current) {
-      // Create the Aladin viewer HTML content
-      const aladinHtml = `
+    if (throttledCoordinates && throttledCoordinates !== coordinates) {
+      setCoordinates(throttledCoordinates);
+    }
+  }, [throttledCoordinates, coordinates]);
+
+  // Update coordinates when FITS coordinates change
+  useEffect(() => {
+    if (fitsCoordinates) {
+      console.log('Using FITS header coordinates:', fitsCoordinates);
+      setCoordinates(fitsCoordinates);
+    }
+  }, [fitsCoordinates]);
+
+  // 6. filteredResults useMemo hook
+  const filteredResults = useMemo(() => {
+    return results.filter(r => {
+      const hasRA = r.ra !== null && r.ra !== undefined && !isNaN(r.ra);
+      const hasDEC = r.dec !== null && r.dec !== undefined && !isNaN(r.dec);
+      return hasRA && hasDEC;
+    });
+  }, [results]);
+
+  // 7. throttle useCallback hook
+  const throttle = useCallback((func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    let lastExecTime = 0;
+    return (...args: any[]) => {
+      const currentTime = Date.now();
+      if (currentTime - lastExecTime > delay) {
+        func(...args);
+        lastExecTime = currentTime;
+      } else {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          func(...args);
+          lastExecTime = Date.now();
+        }, delay - (currentTime - lastExecTime));
+      }
+    };
+  }, []);
+
+  // 8. aladinHtml useMemo hook
+  const aladinHtml = useMemo(() => {
+    console.log('SkyViewer: Total results:', results.length);
+    console.log('SkyViewer: Results with coordinates:', filteredResults.length);
+    console.log('SkyViewer: Sample result:', results[0]);
+    console.log('SkyViewer: Filtered results:', filteredResults);
+    
+    const resultsJSON = JSON.stringify(filteredResults);
+
+    // Create the Aladin viewer HTML content
+    return `
         <!DOCTYPE html>
         <html>
         <head>
@@ -96,11 +217,6 @@ export const SkyViewer = () => {
                 </div>
                 
                 <div class="control-group">
-                    <label>Grid:</label>
-                    <input type="checkbox" id="grid-checkbox" onchange="toggleGrid()" ${showGrid ? 'checked' : ''}>
-                </div>
-                
-                <div class="control-group">
                     <label>Catalog:</label>
                     <select id="catalog-select" onchange="loadCatalog()">
                         <option value="">None</option>
@@ -119,6 +235,9 @@ export const SkyViewer = () => {
             <script type="text/javascript">
                 let aladin;
                 let currentCatalog = null;
+                let resultsCatalog = null;
+                let highlightedCatalog = null;
+                const results = ${resultsJSON};
                 
                 A.init.then(() => {
                     aladin = A.aladin('#aladin-lite-div', {
@@ -126,7 +245,6 @@ export const SkyViewer = () => {
                         fov: ${fov},
                         target: '${coordinates}',
                         showReticle: true,
-                        showGrid: ${showGrid},
                         showCooGrid: true,
                         fullScreen: false,
                         reticleColor: '#ff0000',
@@ -134,6 +252,19 @@ export const SkyViewer = () => {
                         gridColor: '#20B2AA',
                         gridOpacity: 0.5
                     });
+
+                    if (results && results.length > 0) {
+                        resultsCatalog = A.catalog({
+                            name: 'Search Results',
+                            shape: 'square',
+                            color: 'red',
+                            sourceSize: 10,
+                            labelColumn: 'id',
+                        });
+                        const sources = results.map((r, i) => A.source(r.ra, r.dec, {id: i + 1}));
+                        resultsCatalog.addSources(sources);
+                        aladin.addCatalog(resultsCatalog);
+                    }
                     
                     // Add click event listener
                     aladin.on('click', function(params) {
@@ -186,15 +317,6 @@ export const SkyViewer = () => {
                     }, '*');
                 }
                 
-                function toggleGrid() {
-                    const showGrid = document.getElementById('grid-checkbox').checked;
-                    aladin.showGrid(showGrid);
-                    window.parent.postMessage({
-                        type: 'gridToggle',
-                        showGrid: showGrid
-                    }, '*');
-                }
-                
                 function loadCatalog() {
                     const catalogId = document.getElementById('catalog-select').value;
                     
@@ -225,48 +347,85 @@ export const SkyViewer = () => {
                     if (event.data.type === 'updateCoordinates') {
                         aladin.gotoRaDec(event.data.ra, event.data.dec);
                         document.getElementById('coord-input').value = event.data.ra + ' ' + event.data.dec;
+                    } else if (event.data.type === 'highlightResult') {
+                        if (highlightedCatalog) {
+                            aladin.removeCatalog(highlightedCatalog);
+                        }
+                        const result = event.data.result;
+                        if (result && result.ra && result.dec) {
+                            highlightedCatalog = A.catalog({name: 'Selected', sourceSize: 15, color: 'yellow'});
+                            highlightedCatalog.addSources([A.source(result.ra, result.dec, {name: result.name})]);
+                            aladin.addCatalog(highlightedCatalog);
+                        }
                     }
                 });
             </script>
         </body>
         </html>
       `;
+  }, [coordinates, fov, survey, filteredResults]);
 
-      // Create iframe and inject HTML
-      const iframe = document.createElement('iframe');
-      iframe.style.width = '100%';
-      iframe.style.height = '450px';
-      iframe.style.border = 'none';
-      iframe.style.borderRadius = '8px';
-      iframe.srcdoc = aladinHtml;
+  // Use throttled event handling for better performance
+  const throttledHandleMessage = useCallback(
+    throttle((event: MessageEvent) => {
+      if (event.data.type === 'aladinClick') {
+        console.log('Sky coordinates clicked:', event.data.ra, event.data.dec);
+        setCoordinates(`${event.data.ra} ${event.data.dec}`);
+      } else if (event.data.type === 'fovChange') {
+        setFov(event.data.fov);
+      } else if (event.data.type === 'surveyChange') {
+        setSurvey(event.data.survey);
+      } else if (event.data.type === 'catalogChange') {
+        setCatalog(event.data.catalog);
+      }
+    }, 100),
+    []
+  );
+
+  useEffect(() => {
+    if (viewerRef.current && aladinHtml) {
+      // Only update if iframe doesn't exist or HTML has changed
+      let iframe = viewerRef.current.querySelector('iframe') as HTMLIFrameElement;
       
-      // Clear previous content and add iframe
-      viewerRef.current.innerHTML = '';
-      viewerRef.current.appendChild(iframe);
+      if (!iframe || !iframeRef.current) {
+        // Create iframe and inject HTML
+        iframe = document.createElement('iframe');
+        iframe.style.width = '100%';
+        iframe.style.height = '450px';
+        iframe.style.border = 'none';
+        iframe.style.borderRadius = '8px';
+        iframe.srcdoc = aladinHtml;
+        
+        // Clear previous content and add iframe
+        viewerRef.current.innerHTML = '';
+        viewerRef.current.appendChild(iframe);
+        iframeRef.current = iframe;
+      }
 
       // Listen for messages from iframe
-      const handleMessage = (event: MessageEvent) => {
-        if (event.data.type === 'aladinClick') {
-          console.log('Sky coordinates clicked:', event.data.ra, event.data.dec);
-          setCoordinates(`${event.data.ra} ${event.data.dec}`);
-        } else if (event.data.type === 'fovChange') {
-          setFov(event.data.fov);
-        } else if (event.data.type === 'gridToggle') {
-          setShowGrid(event.data.showGrid);
-        } else if (event.data.type === 'surveyChange') {
-          setSurvey(event.data.survey);
-        } else if (event.data.type === 'catalogChange') {
-          setCatalog(event.data.catalog);
-        }
-      };
-
-      window.addEventListener('message', handleMessage);
+      window.addEventListener('message', throttledHandleMessage);
 
       return () => {
-        window.removeEventListener('message', handleMessage);
+        window.removeEventListener('message', throttledHandleMessage);
       };
     }
-  }, [coordinates, fov, showGrid, survey]);
+  }, [aladinHtml, throttledHandleMessage]);
+
+  useEffect(() => {
+    if (viewerRef.current && selectedIndex !== null) {
+      const iframe = viewerRef.current.querySelector("iframe");
+      if (iframe && iframe.contentWindow) {
+        const result = results[selectedIndex];
+        iframe.contentWindow.postMessage(
+          {
+            type: "highlightResult",
+            result: result,
+          },
+          "*"
+        );
+      }
+    }
+  }, [selectedIndex, results]);
 
   const handleCoordinateUpdate = () => {
     if (viewerRef.current) {
@@ -292,7 +451,7 @@ export const SkyViewer = () => {
       <CardContent>
         <div className="space-y-4">
           {/* External Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-700/30 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-700/30 rounded-lg">
             <div className="space-y-2">
               <Label className="text-blue-300">Target Coordinates</Label>
               <div className="flex space-x-2">
@@ -327,21 +486,6 @@ export const SkyViewer = () => {
                 <span className="text-white text-sm w-12">{fov.toFixed(2)}°</span>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label className="text-blue-300">Display Options</Label>
-              <div className="flex items-center">
-                <label className="flex items-center space-x-2 text-white">
-                  <input
-                    type="checkbox"
-                    checked={showGrid}
-                    onChange={(e) => setShowGrid(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span>Grid</span>
-                </label>
-              </div>
-            </div>
           </div>
 
           {/* Aladin Viewer Container */}
@@ -369,4 +513,4 @@ export const SkyViewer = () => {
       </CardContent>
     </Card>
   );
-};
+});

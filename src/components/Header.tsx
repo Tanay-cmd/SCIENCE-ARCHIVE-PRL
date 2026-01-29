@@ -1,9 +1,12 @@
-
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Settings, HelpCircle, ShoppingCart } from "lucide-react";
 
-export const Header = () => {
+interface HeaderProps {
+  onClear: () => void;
+}
+
+export const Header = ({ onClear }: HeaderProps) => {
   return (
     <header className="bg-slate-800/90 backdrop-blur-sm border-b border-blue-500/30 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3">
@@ -21,7 +24,7 @@ export const Header = () => {
           </div>
           
           <nav className="hidden md:flex items-center space-x-2">
-            <Button variant="ghost" size="sm" className="text-blue-200 hover:text-white hover:bg-blue-600/30">
+            <Button onClick={onClear} variant="ghost" size="sm" className="text-blue-200 hover:text-white hover:bg-blue-600/30">
               Clear/reset
             </Button>
             <Button variant="ghost" size="sm" className="text-blue-200 hover:text-white hover:bg-blue-600/30">

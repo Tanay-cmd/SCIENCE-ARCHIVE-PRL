@@ -1,24 +1,44 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.py[cod]
+
+# Environment & Config
+.env
+
+
+*.swp
+
+
 # Logs
-logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+vite.log
+flask.log
 
-node_modules
-dist
-dist-ssr
-*.local
+# Build Outputs
+dist/
+build/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Data Files (Large files, databases, scientific data)
+*.fits
+*.zip
+*.tar.gz
+*.csv
+*.db
+*.sqlite3
+db.sqlite3
+
+# Specific Binaries/Tools
+mc
+curl
+
+# Editor/OS Files
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.vscode/
+.idea/
+*.swp
+*.swo
