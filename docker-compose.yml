@@ -1,19 +1,106 @@
+version: '3.8'
+
 services:
+  minio1:
+    image: minio/minio:RELEASE.2021-06-17T00-10-46Z
+    volumes:
+      - ./data/data1-1:/data1
+      - ./data/data1-2:/data2
+    ports:
+      - "9000:9000"
+    environment:
+      MINIO_ROOT_USER: Laav10user
+      MINIO_ROOT_PASSWORD: Laav10pass
+      MINIO_REGION_NAME: minio-region
+      MINIO_DOMAIN: localhost
+    command: server http://minio{1...4}/data{1...2}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - minio_distributed
+
+  minio2:
+    image: minio/minio:RELEASE.2021-06-17T00-10-46Z
+    volumes:
+      - ./data/data2-1:/data1
+      - ./data/data2-2:/data2
+    ports:
+      - "9002:9000"
+    environment:
+      MINIO_ROOT_USER: Laav10user
+      MINIO_ROOT_PASSWORD: Laav10pass
+      MINIO_REGION_NAME: minio-region
+      MINIO_DOMAIN: localhost
+    command: server http://minio{1...4}/data{1...2}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - minio_distributed
+
+  minio3:
+    image: minio/minio:RELEASE.2021-06-17T00-10-46Z
+    volumes:
+      - ./data/data3-1:/data1
+      - ./data/data3-2:/data2
+    ports:
+      - "9004:9000"
+    environment:
+      MINIO_ROOT_USER: Laav10user
+      MINIO_ROOT_PASSWORD: Laav10pass
+      MINIO_REGION_NAME: minio-region
+      MINIO_DOMAIN: localhost
+    command: server http://minio{1...4}/data{1...2}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - minio_distributed
+
+  minio4:
+    image: minio/minio:RELEASE.2021-06-17T00-10-46Z
+    volumes:
+      - ./data/data4-1:/data1
+      - ./data/data4-2:/data2
+    ports:
+      - "9006:9000"
+    environment:
+      MINIO_ROOT_USER: Laav10user
+      MINIO_ROOT_PASSWORD: Laav10pass
+      MINIO_REGION_NAME: minio-region
+      MINIO_DOMAIN: localhost
+    command: server http://minio{1...4}/data{1...2}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - minio_distributed
   fits_backend:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "5003:5003"
-    networks:
-      - minio_distributed
+    network_mode: "host"
     environment:
-      - MINIO_ENDPOINT=localhost:9002  # Changed from minio2:9000 to localhost:9002
+      - MINIO_ENDPOINT=localhost:9000
       - MINIO_ACCESS_KEY=Laav10user
       - MINIO_SECRET_KEY=Laav10pass
       - MINIO_BUCKET=dataarchive
+      - DB_HOST=localhost
+    depends_on:
+      - minio1
+      - minio2
+      - minio3
+      - minio4
 
 networks:
   minio_distributed:
-    external: true
-
+    driver: bridge

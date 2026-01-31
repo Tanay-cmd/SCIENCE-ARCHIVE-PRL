@@ -42,3 +42,7 @@ curl
 .idea/
 *.swp
 *.swo
+/data/
+/uploading/
+/09042025/
+/2026/

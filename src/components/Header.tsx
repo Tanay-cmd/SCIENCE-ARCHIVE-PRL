@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Settings, HelpCircle, ShoppingCart } from "lucide-react";
 
+import { UploadModal } from "./UploadModal";
+
 interface HeaderProps {
   onClear: () => void;
 }
@@ -22,8 +24,9 @@ export const Header = ({ onClear }: HeaderProps) => {
               </div>
             </div>
           </div>
-          
+
           <nav className="hidden md:flex items-center space-x-2">
+            <UploadModal />
             <Button onClick={onClear} variant="ghost" size="sm" className="text-blue-200 hover:text-white hover:bg-blue-600/30">
               Clear/reset
             </Button>
@@ -47,7 +50,7 @@ export const Header = ({ onClear }: HeaderProps) => {
               Help
             </Button>
           </nav>
-          
+
           <div className="flex items-center space-x-4">
             <Badge variant="secondary" className="bg-blue-600/30 text-blue-200 border-blue-500/50">
               <ShoppingCart className="w-3 h-3 mr-1" />

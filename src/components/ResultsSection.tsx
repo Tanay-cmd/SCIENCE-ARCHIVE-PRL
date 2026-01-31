@@ -29,105 +29,28 @@ interface FitsImageData {
   height: number;
 }
 
-export const ResultsSection = ({ 
-  results, 
-  onResultSelect, 
-  onExpand, 
-  expandedRow, 
-  headerData 
+export const ResultsSection = ({
+  results,
+  onResultSelect,
+  onExpand,
+  expandedRow,
+  headerData
 }: ResultsSectionProps) => {
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
-  const [viewingImage, setViewingImage] = useState<FitsImageData | null>(null);
-  const [isLoadingImage, setIsLoadingImage] = useState<boolean>(false);
+  const [viewingFileName, setViewingFileName] = useState<string | null>(null);
 
   const handleSelectRow = (row: any, index: number) => {
     setSelectedRow(index);
     onResultSelect(row, index);
   };
 
-  const handleViewImage = async (fileName: string) => {
+  const handleViewImage = (fileName: string) => {
     const lowerFileName = fileName.toLowerCase();
     if (!lowerFileName.endsWith('.fits') && !lowerFileName.endsWith('.fit')) {
-      console.error("Not a FITS/FIT file:", fileName);
-      alert("This file is not a FITS/FIT file and cannot be displayed as an image.");
+      toast.error("Not a FITS file");
       return;
     }
-
-    setIsLoadingImage(true);
-    try {
-      const minioClient = await getMinioClient();
-      if (!minioClient) {
-        throw new Error("Minio client not initialized");
-      }
-      
-      const presignedUrl = await minioClient.presignedGetObject("dataarchive", fileName, 24 * 60 * 60);
-      console.log("Presigned URL generated:", presignedUrl);
-      
-      // Check if jsfitsio is available
-      if (!window.jsfitsio) {
-        throw new Error("jsfitsio library is not loaded");
-      }
-      
-      const fp = new window.jsfitsio.FITSParser(presignedUrl);
-      console.log("FITSParser created");
-      
-      const fits = await fp.loadFITS();
-      console.log("FITS data loaded:", fits);
-
-      if (fits && fits.header && fits.data) {
-        const header = fits.header;
-        const fitsData = fits.data;
-        const width = header.get('NAXIS1');
-        const height = header.get('NAXIS2');
-        
-        console.log(`Image dimensions: ${width} x ${height}`);
-        console.log("FITS data structure:", fitsData);
-        
-        let numericData: number[][];
-        
-        if (Array.isArray(fitsData) && Array.isArray(fitsData[0])) {
-          numericData = fitsData.map(row => 
-            Array.isArray(row) ? Array.from(row) : [row]
-          );
-        } else if (Array.isArray(fitsData)) {
-          numericData = [];
-          for (let i = 0; i < height; i++) {
-            const row = [];
-            for (let j = 0; j < width; j++) {
-              const value = fitsData[i * width + j];
-              row.push(typeof value === 'number' ? value : 0);
-            }
-            numericData.push(row);
-          }
-        } else {
-          throw new Error("Unexpected FITS data format");
-        }
-        
-        console.log("Processed image data size:", numericData.length, "x", numericData[0]?.length);
-        setViewingImage({ data: numericData, width, height });
-      } else {
-        throw new Error("Invalid FITS data received");
-      }
-    } catch (err) {
-      console.error("Error processing FITS file:", err);
-      let errorMessage = "Failed to load FITS image.";
-      
-      if (err instanceof Error) {
-        if (err.message.includes("jsfitsio library is not loaded")) {
-          errorMessage = "FITS viewer library is not loaded. Please refresh the page.";
-        } else if (err.message.includes("Minio client not initialized")) {
-          errorMessage = "Storage connection failed. Please check if the archive service is running.";
-        } else if (err.message.includes("Invalid FITS data")) {
-          errorMessage = "The FITS file appears to be corrupted or has an unsupported format.";
-        } else {
-          errorMessage = `Error: ${err.message}`;
-        }
-      }
-      
-      alert(errorMessage);
-    } finally {
-      setIsLoadingImage(false);
-    }
+    setViewingFileName(fileName);
   };
 
   const handleCopyCommand = async (fileName: string) => {
@@ -135,17 +58,13 @@ export const ResultsSection = ({
       const minioClient = await getMinioClient();
       const presignedUrl = await minioClient.presignedGetObject("dataarchive", fileName, 3600);
       const curlCommand = `curl -X GET "${presignedUrl}" --output ${fileName}`;
-      
+
       await navigator.clipboard.writeText(curlCommand);
       toast.success("Curl command copied to clipboard!");
     } catch (err) {
       console.error("Failed to copy command:", err);
       toast.error("Failed to copy command to clipboard");
     }
-  };
-
-  const closeImageOverlay = () => {
-    setViewingImage(null);
   };
 
   return (
@@ -192,7 +111,7 @@ export const ResultsSection = ({
                   <TableBody>
                     {results.map((row, index) => (
                       <Fragment key={row.id}>
-                        <TableRow 
+                        <TableRow
                           className={cn("border-blue-500/20 hover:bg-blue-600/20 text-white", {
                             "bg-blue-600/30": selectedRow === index,
                           })}
@@ -208,21 +127,15 @@ export const ResultsSection = ({
                               variant="ghost"
                               className="text-blue-300 hover:bg-blue-600/30 relative"
                               onClick={() => handleViewImage(row.name)}
-                              disabled={isLoadingImage}
                             >
                               <Eye className="h-4 w-4" />
-                              {isLoadingImage && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-md">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                </div>
-                              )}
                             </Button>
                           </TableCell>
                           <TableCell>{row.type}</TableCell>
                           <TableCell>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
                               onClick={() => handleSelectRow(row, index)}
                             >
@@ -236,7 +149,7 @@ export const ResultsSection = ({
                               onClick={() => onExpand(index, row.name)}
                               className="text-blue-300 hover:bg-blue-600/30"
                             >
-                              {expandedRow === index ? <ChevronUp className="h-4 w-4"/> : <ChevronDown className="h-4 w-4"/>}
+                              {expandedRow === index ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </Button>
                           </TableCell>
                           <TableCell className="text-center">
@@ -314,11 +227,11 @@ export const ResultsSection = ({
         </CardContent>
       </Card>
 
-      <ImageOverlay 
-        imageData={viewingImage?.data || null}
-        width={viewingImage?.width || 0}
-        height={viewingImage?.height || 0}
-        onClose={closeImageOverlay}
+      <ImageOverlay
+        fileName={viewingFileName}
+        isOpen={!!viewingFileName}
+        onClose={() => setViewingFileName(null)}
+        imageData={null}
       />
     </div>
   );
