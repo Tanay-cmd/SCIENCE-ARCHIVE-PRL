@@ -12,7 +12,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.pool import SimpleConnectionPool
 
-from datetime import datetime
+from datetime import datetime, date, time
 
 
 app = Flask(__name__)
@@ -154,11 +154,11 @@ def header_to_row(h):
         "radecsys": get_str(h, "RADECSYS"),
         "epoch": get_str(h, "EPOCH"),
 
-        "trg_name": get_str(h, "TRG_NAME"),
-        "trg_alph": get_float(h, "TRG_ALPH"),
-        "trg_delt": get_float(h, "TRG_DELT"),
-        "trg_type": get_str(h, "TRG_TYPE"),
-        "trg_epoc": get_int(h, "TRG_EPOC"),
+        "trg_name": get_str(h, "TRG_NAME") or get_str(h, "TRG NAME"),
+        "trg_alph": get_float(h, "TRG_ALPH") or get_float(h, "TRG ALPH"),
+        "trg_delt": get_float(h, "TRG_DELT") or get_float(h, "TRG DELT"),
+        "trg_type": get_str(h, "TRG_TYPE") or get_str(h, "TRG TYPE"),
+        "trg_epoc": get_int(h, "TRG_EPOC") or get_int(h, "TRG EPOC"),
 
         "bunit": get_str(h, "BUNIT"),
         "datamax": get_int(h, "DATAMAX"),
@@ -170,7 +170,7 @@ def header_to_row(h):
         "obs_tsys": get_str(h, "OBS_TSYS"),
         "obs_mjd": get_float(h, "OBS MJD"),
 
-        "obs_airm": get_float(h, "AIRMASS"),
+        "obs_airm": get_float(h, "AIRMASS") or get_float(h, "OBS AIRM"),
         "moonangl": get_float(h, "MOONANGL"),
 
         "obs_type": get_str(h, "OBS TYPE"),
@@ -191,10 +191,14 @@ def insert_header(row, conn):
     cols = list(row.keys())
     vals = [row[c] for c in cols]
 
+    # Generate SET clause for UPSERT
+    set_clause = ", ".join([f"{c} = EXCLUDED.{c}" for c in cols if c != "fileid"])
+
     query = f"""
     INSERT INTO fits_headers ({",".join(cols)})
     VALUES ({",".join(["%s"] * len(cols))})
-    ON CONFLICT (fileid) DO NOTHING
+    ON CONFLICT (fileid) DO UPDATE SET
+    {set_clause}
     """
 
     with conn.cursor() as cur:
@@ -254,8 +258,11 @@ def upload_fits():
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
+    original_filename = file.filename or ""
+    is_gzip = original_filename.lower().endswith(".gz")
+    temp_suffix = ".fits.gz" if is_gzip else ".fits"
 
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".fits")
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=temp_suffix)
     tmp_path = tmp.name
     file.save(tmp_path)
 
@@ -267,6 +274,8 @@ def upload_fits():
             row = header_to_row(header)
 
         object_name = f"{row['fileid']}.fits"
+        if is_gzip:
+            object_name += ".gz"
 
         # TRANSACTION (atomic)
         conn.autocommit = False
@@ -418,6 +427,46 @@ def get_fits_image_data():
         
     except Exception as e:
         print(f"Error processing FITS file: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/fits-metadata/', methods=['GET'])
+def get_fits_metadata():
+    """
+    Get all metadata for a specific fileID from Postgres
+    """
+    file_name = request.args.get('file')
+    if not file_name:
+        return jsonify({'error': 'No file specified'}), 400
+
+    try:
+        # Extract fileid from filename (e.g. "12345.fits" -> 12345)
+        # Assumes filename starts with the ID
+        file_id_str = file_name.split('.')[0]
+        if not file_id_str.isdigit():
+             return jsonify({'error': 'Invalid filename format, expected <int>.fits'}), 400
+        
+        file_id = int(file_id_str)
+
+        conn = get_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM fits_headers WHERE fileid = %s", (file_id,))
+                row = cur.fetchone()
+                
+                if not row:
+                    return jsonify({'error': 'Metadata not found'}), 404
+                
+                # Convert datetime objects to strings for JSON serialization
+                for key, val in row.items():
+                    if isinstance(val, (datetime, date, time)):
+                        row[key] = val.isoformat()
+                        
+                return jsonify(row)
+        finally:
+            release_conn(conn)
+
+    except Exception as e:
+        print(f"Error fetching metadata: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

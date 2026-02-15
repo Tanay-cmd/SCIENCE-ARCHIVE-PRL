@@ -29,6 +29,11 @@ interface FitsImageData {
   height: number;
 }
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { SkyViewer } from "./SkyViewer";
+import { MapPin } from "lucide-react";
+
 export const ResultsSection = ({
   results,
   onResultSelect,
@@ -38,15 +43,63 @@ export const ResultsSection = ({
 }: ResultsSectionProps) => {
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [viewingFileName, setViewingFileName] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<any | null>(null);
+  const [isMetadataOpen, setIsMetadataOpen] = useState(false);
 
-  const handleSelectRow = (row: any, index: number) => {
+  // SkyViewer state
+  const [isSkyViewerOpen, setIsSkyViewerOpen] = useState(false);
+  const [skyViewerCoordinates, setSkyViewerCoordinates] = useState<string | null>(null);
+
+  const handleSelectRow = async (row: any, index: number) => {
     setSelectedRow(index);
-    onResultSelect(row, index);
+
+    try {
+      const response = await fetch(`http://localhost:5003/api/fits-metadata/?file=${row.name}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch metadata");
+      }
+
+      setMetadata(data);
+      setIsMetadataOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load metadata");
+    }
+  };
+
+  const handleLocateRow = async (row: any) => {
+    try {
+      const response = await fetch(`http://localhost:5003/api/fits-metadata/?file=${row.name}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch metadata");
+      }
+
+      // Extract RA and DEC
+      // Check for common variations if needed, but schema uses trg_alph and trg_delt
+      const ra = data.trg_alph;
+      const dec = data.trg_delt;
+
+      if (ra === null || ra === undefined || dec === null || dec === undefined) {
+        toast.error("No coordinates (RA/DEC) found for this file.");
+        return;
+      }
+
+      setSkyViewerCoordinates(`${ra} ${dec}`);
+      setIsSkyViewerOpen(true);
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fetch location data");
+    }
   };
 
   const handleViewImage = (fileName: string) => {
     const lowerFileName = fileName.toLowerCase();
-    if (!lowerFileName.endsWith('.fits') && !lowerFileName.endsWith('.fit')) {
+    if (!lowerFileName.endsWith('.fits') && !lowerFileName.endsWith('.fit') && !lowerFileName.endsWith('.gz')) {
       toast.error("Not a FITS file");
       return;
     }
@@ -103,8 +156,8 @@ export const ResultsSection = ({
                       <TableHead className="text-blue-200 font-semibold">Description</TableHead>
                       <TableHead className="text-blue-200 font-semibold text-center">View</TableHead>
                       <TableHead className="text-blue-200 font-semibold">Type</TableHead>
-                      <TableHead className="text-blue-200 font-semibold">Action</TableHead>
-                      <TableHead className="text-blue-200 font-semibold text-center w-20">Header</TableHead>
+                      <TableHead className="text-blue-200 font-semibold">Metadata</TableHead>
+                      <TableHead className="text-blue-200 font-semibold text-center w-20">Locate</TableHead>
                       <TableHead className="text-blue-200 font-semibold text-center w-20">Curl</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -139,17 +192,18 @@ export const ResultsSection = ({
                               className="border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
                               onClick={() => handleSelectRow(row, index)}
                             >
-                              Select
+                              View Info
                             </Button>
                           </TableCell>
                           <TableCell className="text-center">
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => onExpand(index, row.name)}
+                              onClick={() => handleLocateRow(row)}
                               className="text-blue-300 hover:bg-blue-600/30"
+                              title="Locate on Sky Search"
                             >
-                              {expandedRow === index ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              <MapPin className="h-4 w-4" />
                             </Button>
                           </TableCell>
                           <TableCell className="text-center">
@@ -164,45 +218,7 @@ export const ResultsSection = ({
                             </Button>
                           </TableCell>
                         </TableRow>
-                        {expandedRow === index && (
-                          <TableRow className="bg-slate-900/50">
-                            <TableCell colSpan={7}>
-                              <div className="p-4 bg-slate-800/50 rounded-lg">
-                                <h4 className="font-bold text-lg text-blue-200 mb-2">FITS Header Information</h4>
-                                <div className="mb-2 text-blue-300 text-sm">
-                                  Observer: {(() => {
-                                    const obs = headerData.find(h => h.Keyword && h.Keyword.toUpperCase() === 'OBSERVER');
-                                    return obs ? obs.Value : '—';
-                                  })()}
-                                </div>
-                                <div className="max-h-60 overflow-y-auto rounded-md border border-slate-700">
-                                  <table className="w-full text-xs text-slate-300">
-                                    <thead className="bg-slate-800 sticky top-0 z-10">
-                                      <tr>
-                                        <th className="text-left font-semibold p-2 text-blue-200 w-1/2">Keyword</th>
-                                        <th className="text-left font-semibold p-2 text-blue-200 w-1/2">Value</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {headerData.length > 0 ? (
-                                        headerData.map((h, i) => (
-                                          <tr key={i} className="border-t border-blue-900 bg-slate-900/80">
-                                            <td className="p-2 font-mono text-blue-200 w-1/2">{h.Keyword}</td>
-                                            <td className="p-2 font-mono whitespace-pre-wrap break-all text-blue-100 w-1/2">{h.Value}</td>
-                                          </tr>
-                                        ))
-                                      ) : (
-                                        <tr>
-                                          <td colSpan={2} className="text-center p-4">Loading header...</td>
-                                        </tr>
-                                      )}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
+
                       </Fragment>
                     ))}
                   </TableBody>
@@ -233,6 +249,47 @@ export const ResultsSection = ({
         onClose={() => setViewingFileName(null)}
         imageData={null}
       />
+
+      <Dialog open={isMetadataOpen} onOpenChange={setIsMetadataOpen}>
+        <DialogContent className="max-w-3xl bg-slate-900 border-slate-700 text-slate-100">
+          <DialogHeader>
+            <DialogTitle>File Metadata</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Full database record for this file.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {metadata && Object.entries(metadata).map(([key, value]) => (
+                <div key={key} className="flex flex-col border-b border-slate-800 pb-2">
+                  <span className="text-blue-400 font-mono text-xs uppercase">{key}</span>
+                  <span className="text-slate-200 break-all font-mono">{String(value)}</span>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSkyViewerOpen} onOpenChange={setIsSkyViewerOpen}>
+        <DialogContent className="max-w-4xl bg-slate-900 border-slate-700 text-slate-100">
+          <DialogHeader>
+            <DialogTitle>Sky Location</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Viewing target coordinates: {skyViewerCoordinates}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-[500px] w-full">
+            {isSkyViewerOpen && (
+              <SkyViewer
+                coordinates={skyViewerCoordinates}
+                results={[]}
+                selectedIndex={null}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
